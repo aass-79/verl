@@ -78,6 +78,7 @@ jobs:
       # port (16666) fails every subsequent hcclCommInitRootInfoConfig (EI0020).
       HCCL_HOST_SOCKET_PORT_RANGE: "60000-60050"
       HCCL_NPU_SOCKET_PORT_RANGE: "61000-61050"
+      VERL_USE_EXTERNAL_MODULES: "megatron_adaptor" # import megatron_adaptor to patch megatron-lm
     steps:
       - name: Check npu and CANN info
         run: |
@@ -130,6 +131,7 @@ jobs:
       TRANSFORMERS_VERBOSITY: 'error'
       HCCL_HOST_SOCKET_PORT_RANGE: "60000-60050"
       HCCL_NPU_SOCKET_PORT_RANGE: "61000-61050"
+      VERL_USE_EXTERNAL_MODULES: "megatron_adaptor" # import megatron_adaptor to patch megatron-lm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
