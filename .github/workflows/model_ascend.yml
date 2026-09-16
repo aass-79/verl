@@ -78,7 +78,6 @@ jobs:
       # port (16666) fails every subsequent hcclCommInitRootInfoConfig (EI0020).
       HCCL_HOST_SOCKET_PORT_RANGE: "60000-60050"
       HCCL_NPU_SOCKET_PORT_RANGE: "61000-61050"
-      VERL_USE_EXTERNAL_MODULES: "megatron_adaptor" # import megatron_adaptor to patch megatron-lm
     steps:
       - name: Check npu and CANN info
         run: |
@@ -95,6 +94,25 @@ jobs:
       - name: Install the current repository
         run: |
           pip install --no-deps -e .[test]
+      - name: Patch nvidia-resiliency-ext missing __version__
+        run: |
+          # The latest-vllm-a3-ubuntu image ships an Ascend-adapted
+          # nvidia-resiliency-ext that does not define __version__. Megatron
+          # reads that attribute at import time
+          # (megatron/core/dist_checkpointing/strategies/torch.py ->
+          # has_nvrx_async_support), so any `import megatron.core` raises
+          # AttributeError. tests/special_distributed/run_all.sh imports
+          # megatron.core before verl, so VERL_USE_EXTERNAL_MODULES cannot help;
+          # backfill __version__ in the container (same value as the official
+          # Ascend megatron_adaptor patch) until the image itself is fixed.
+          NVRX_INIT=$(python3 -c "import nvidia_resiliency_ext as m; print(m.__file__)")
+          if grep -q "__version__" "$NVRX_INIT"; then
+            echo "$NVRX_INIT already defines __version__, skipping patch"
+          else
+            echo '__version__ = "999.999.999"' >> "$NVRX_INIT"
+            echo "patched $NVRX_INIT"
+          fi
+          python3 -c "import megatron.core; print('megatron.core imports OK')"
       - name: Check final pip list
         run: |
           pip list
@@ -131,7 +149,6 @@ jobs:
       TRANSFORMERS_VERBOSITY: 'error'
       HCCL_HOST_SOCKET_PORT_RANGE: "60000-60050"
       HCCL_NPU_SOCKET_PORT_RANGE: "61000-61050"
-      VERL_USE_EXTERNAL_MODULES: "megatron_adaptor" # import megatron_adaptor to patch megatron-lm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
