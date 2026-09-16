@@ -101,6 +101,12 @@ jobs:
         run: |
           pip3 install --no-deps -e .[test]
           pip3 install pytest-asyncio
+          # The latest-vllm-910b-ubuntu image ships transformers 5.3.0, which is
+          # below verl's own requirement (setup.py: transformers>=5.5.3,!=5.6.0,<5.11)
+          # and contains a Qwen3-VL regression: get_rope_index no longer splits
+          # per-frame video grids (huggingface/transformers#44560), so any video
+          # sample dies with StopIteration in tests/experimental/agent_loop.
+          pip3 install "transformers>=5.5.3,!=5.6.0,<5.11"
       - name: Check final pip list
         run: |
           pip list
