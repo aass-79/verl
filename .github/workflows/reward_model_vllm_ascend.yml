@@ -90,6 +90,29 @@ jobs:
       - name: Check final pip list
         run: |
           pip list
+      - name: Patch nvidia-resiliency-ext missing __version__
+        run: |
+          # The latest-vllm-a3-ubuntu image ships an Ascend-adapted
+          # nvidia-resiliency-ext that does not define __version__. Megatron
+          # reads that attribute at import time
+          # (megatron/core/dist_checkpointing/strategies/torch.py ->
+          # has_nvrx_async_support), so any `import megatron.core` raises
+          # AttributeError. The reward-loop tests spawn vLLM servers inside Ray
+          # actors, which forces VLLM_WORKER_MULTIPROC_METHOD=spawn; the
+          # spawned EngineCore/Worker interpreters never import verl, so
+          # VERL_USE_EXTERNAL_MODULES=megatron_adaptor cannot reach them, and
+          # the first megatron.core reference unpickled from a worker message
+          # kills EngineCore (EngineDeadError -> /classify HTTP 500).
+          # Backfill __version__ in the container (same value as the official
+          # Ascend megatron_adaptor patch) until the image itself is fixed.
+          NVRX_INIT=$(python3 -c "import nvidia_resiliency_ext as m; print(m.__file__)")
+          if grep -q "__version__" "$NVRX_INIT"; then
+            echo "$NVRX_INIT already defines __version__, skipping patch"
+          else
+            echo '__version__ = "999.999.999"' >> "$NVRX_INIT"
+            echo "patched $NVRX_INIT"
+          fi
+          python3 -c "import megatron.core; print('megatron.core imports OK')"
       - name: Prepare weights
         run: |
           ln -s /root/.cache/models ~/models
